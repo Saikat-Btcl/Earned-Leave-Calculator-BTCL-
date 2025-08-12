@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>অর্জিত ছুটি ক্যালকুলেটর</title>
+<style>
+  body {
+    font-family: 'Noto Sans Bengali', sans-serif, Arial, sans-serif;
+    background: linear-gradient(135deg, #c3ec52, #0ba29d);
+    margin: 0; padding: 20px;
+    color: #222;
+  }
+  .container {
+    max-width: 1100px;
+    margin: auto;
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 20px;
+  }
+  .card {
+    background: #fff;
+    padding: 25px 30px;
+    border-radius: 15px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+  }
+  h2 {
+    margin-top: 0;
+    color: #00796b;
+    font-weight: 700;
+    text-align: center;
+  }
+  label {
+    display: block;
+    font-weight: 600;
+    margin-top: 15px;
+  }
+  input[type=text], input[type=date], input[type=number], select {
+    width: 100%;
+    padding: 10px 12px;
+    margin-top: 6px;
+    border-radius: 8px;
+    border: 1.8px solid #ccc;
+    font-size: 16px;
+    box-sizing: border-box;
+    transition: border-color 0.3s ease;
+  }
+  input[type=text]:focus, input[type=date]:focus, input[type=number]:focus, select:focus {
+    border-color: #00796b;
+    outline: none;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+  }
+  th, td {
+    text-align: center;
+    padding: 10px 8px;
+    border: 1px solid #ddd;
+    font-size: 15px;
+  }
+  th {
+    background: #00796b;
+    color: #fff;
+    font-weight: 700;
+  }
+  td.duration {
+    font-weight: 600;
+    color: #004d40;
+    background: #b2dfdb;
+  }
+  .summary-box {
+    margin-top: 20px;
+    background: #e0f2f1;
+    padding: 18px;
+    border-radius: 12px;
+    font-size: 18px;
+    font-weight: 700;
+    color: #004d40;
+  }
+  .summary-box span {
+    color: #00796b;
+  }
+  /* Scroll if many rows */
+  #leaveTableContainer {
+    max-height: 380px;
+    overflow-y: auto;
+    border: 1.5px solid #00796b;
+    border-radius: 10px;
+    margin-top: 12px;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <!-- বাম সেগমেন্ট -->
+  <div class="card">
+    <h2>অর্জিত ছুটি ক্যালকুলেটর</h2>
+
+    <label>নাম:</label>
+    <input type="text" id="name" placeholder="নাম লিখুন" />
+
+    <label>পদবী:</label>
+    <input type="text" id="designation" placeholder="পদবী লিখুন" />
+
+    <label>চাকরিতে যোগদানের তারিখ:</label>
+    <input type="date" id="joiningDate" />
+
+    <label>আজকের তারিখ:</label>
+    <input type="date" id="todayDate" readonly />
+
+    <label>আপনি কতবার অর্জিত ছুটি ভোগ করেছেন?</label>
+    <input type="number" id="leaveCount" min="0" value="0" />
+
+    <div id="leaveTableContainer">
+      <table id="leaveTable" style="display:none;">
+        <thead>
+          <tr>
+            <th>ছুটি শুরু তারিখ</th>
+            <th>ছুটি শেষ তারিখ</th>
+            <th>RR কিনা?</th>
+            <th>দিন সংখ্যা</th>
+          </tr>
+        </thead>
+        <tbody id="leaveRows"></tbody>
+      </table>
+    </div>
+
+    <div class="summary-box" id="summaryBox" style="display:none;">
+      <p>মোট অর্জিত ছুটি: <span id="earnedLeave">0</span> দিন</p>
+      <p>মোট ব্যয়: <span id="usedLeave">0</span> দিন</p>
+      <p>অবশিষ্ট ছুটি: <span id="remainingLeave">0</span> দিন</p>
+    </div>
+  </div>
+
+  <!-- ডান সেগমেন্ট -->
+  <div class="card">
+    <h2>সারসংক্ষেপ</h2>
+    <p>জনাব: <span id="summaryName">---</span></p>
+    <p>পদবী: <span id="summaryDesignation">---</span></p>
+    <p>মোট অর্জিত ছুটি: <span id="summaryEarnedLeave">0</span> দিন</p>
+    <p>ব্যয়: <span id="summaryUsedLeave">0</span> দিন</p>
+    <p>বর্তমানে আছে: <span id="summaryRemainingLeave">0</span> দিন</p>
+  </div>
+</div>
+
+<script>
+  // আজকের তারিখ সেট করা
+  function formatDateISOToDDMMYYYY(dateStr) {
+    if(!dateStr) return '';
+    const d = new Date(dateStr);
+    const day = ('0' + d.getDate()).slice(-2);
+    const month = ('0' + (d.getMonth() +1)).slice(-2);
+    const year = d.getFullYear();
+    return `${day}-${month}-${year}`;
+  }
+
+  const todayInput = document.getElementById('todayDate');
+  todayInput.valueAsDate = new Date();
+
+  const leaveCountInput = document.getElementById('leaveCount');
+  const leaveRowsContainer = document.getElementById('leaveRows');
+  const leaveTable = document.getElementById('leaveTable');
+  const summaryBox = document.getElementById('summaryBox');
+
+  function createLeaveRows(count) {
+    leaveRowsContainer.innerHTML = '';
+    if(count <= 0) {
+      leaveTable.style.display = 'none';
+      summaryBox.style.display = 'none';
+      updateSummary();
+      return;
+    }
+    leaveTable.style.display = 'table';
+    summaryBox.style.display = 'block';
+
+    for(let i=0; i<count; i++) {
+      const tr = document.createElement('tr');
+
+      // start date
+      const tdStart = document.createElement('td');
+      const inputStart = document.createElement('input');
+      inputStart.type = 'date';
+      inputStart.classList.add('startDate');
+      inputStart.addEventListener('change', calculateLeaves);
+      tdStart.appendChild(inputStart);
+
+      // end date
+      const tdEnd = document.createElement('td');
+      const inputEnd = document.createElement('input');
+      inputEnd.type = 'date';
+      inputEnd.classList.add('endDate');
+      inputEnd.addEventListener('change', calculateLeaves);
+      tdEnd.appendChild(inputEnd);
+
+      // RR option
+      const tdRR = document.createElement('td');
+      const selectRR = document.createElement('select');
+      selectRR.classList.add('rrOption');
+      const optionNo = document.createElement('option');
+      optionNo.value = 'না';
+      optionNo.textContent = 'না';
+      const optionYes = document.createElement('option');
+      optionYes.value = 'হ্যাঁ';
+      optionYes.textContent = 'হ্যাঁ';
+      selectRR.appendChild(optionNo);
+      selectRR.appendChild(optionYes);
+      tdRR.appendChild(selectRR);
+
+      // days count
+      const tdDays = document.createElement('td');
+      tdDays.classList.add('daysCount');
+      tdDays.textContent = '0';
+
+      tr.appendChild(tdStart);
+      tr.appendChild(tdEnd);
+      tr.appendChild(tdRR);
+      tr.appendChild(tdDays);
+
+      leaveRowsContainer.appendChild(tr);
+    }
+  }
+
+  leaveCountInput.addEventListener('input', function(){
+    let val = parseInt(this.value);
+    if(isNaN(val) || val < 0) val = 0;
+    createLeaveRows(val);
+  });
+
+  function calculateLeaves() {
+    const joinDateVal = document.getElementById('joiningDate').value;
+    const todayVal = document.getElementById('todayDate').value;
+
+    if(!joinDateVal || !todayVal) return;
+
+    const joinDate = new Date(joinDateVal);
+    const todayDate = new Date(todayVal);
+
+    let serviceDays = Math.floor((todayDate - joinDate) / (1000*60*60*24)) + 1;
+    if(serviceDays < 0) serviceDays = 0;
+
+    let earnedLeave = Math.floor(serviceDays / 11);
+
+    let totalUsed = 0;
+
+    const rows = leaveRowsContainer.querySelectorAll('tr');
+    rows.forEach(row => {
+      const startInput = row.querySelector('.startDate').value;
+      const endInput = row.querySelector('.endDate').value;
+      const daysCell = row.querySelector('.daysCount');
+
+      if(startInput && endInput) {
+        const startD = new Date(startInput);
+        const endD = new Date(endInput);
+        let diffDays = Math.floor((endD - startD) / (1000*60*60*24)) + 1;
+        if(diffDays < 0) diffDays = 0;
+        daysCell.textContent = diffDays;
+        totalUsed += diffDays;
+      } else {
+        daysCell.textContent = 0;
+      }
+    });
+
+    const remaining = earnedLeave - totalUsed < 0 ? 0 : earnedLeave - totalUsed;
+
+    // Update left side summary box
+    document.getElementById('earnedLeave').textContent = earnedLeave;
+    document.getElementById('usedLeave').textContent = totalUsed;
+    document.getElementById('remainingLeave').textContent = remaining;
+
+    // Update right side summary
+    document.getElementById('summaryName').textContent = document.getElementById('name').value || '---';
+    document.getElementById('summaryDesignation').textContent = document.getElementById('designation').value || '---';
+    document.getElementById('summaryEarnedLeave').textContent = earnedLeave;
+    document.getElementById('summaryUsedLeave').textContent = totalUsed;
+    document.getElementById('summaryRemainingLeave').textContent = remaining;
+  }
+
+  // Update summary when main inputs change
+  ['name','designation','joiningDate','todayDate'].forEach(id => {
+    document.getElementById(id).addEventListener('input', calculateLeaves);
+    document.getElementById(id).addEventListener('change', calculateLeaves);
+  });
+
+  // Set today date automatically
+  window.addEventListener('load', () => {
+    const today = new Date().toISOString().slice(0,10);
+    document.getElementById('todayDate').value = today;
+  });
+</script>
+
+</body>
+</html>
